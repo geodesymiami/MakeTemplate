@@ -24,8 +24,6 @@ def extract_coordinates(polygon_str):
 
     return min_lon, max_lon, min_lat, max_lat
 
-COPY = "https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC"
-
 
 def main(url):
     # Parse the URL
