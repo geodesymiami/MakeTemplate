@@ -1,8 +1,11 @@
 import os
+import re
 import sys
 import math
 import argparse
+import datetime
 import pyperclip
+import asf_extractor
 
 
 EXAMPLE = """
@@ -16,27 +19,61 @@ def create_parser():
     epilog = EXAMPLE
     parser = argparse.ArgumentParser(description=synopsis, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('--polygon', type=str, required=True, help="Polygon coordinates in WKT format.")
-    parser.add_argument('--path', type=int, required=True, help="Path number.")
-    parser.add_argument('--swath', type=str, required=True, help="Swath numbers as a string.")
-    parser.add_argument('--troposphere', type=str, action="staore_true", help="Tropospheric correction mode.")
+    parser.add_argument('--url', type=str, help="URL to the ASF data.")
+    parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
+    parser.add_argument('--path', type=int, help="Path number.")
+    parser.add_argument('--swath', type=str, default='1 2 3', help="Swath numbers as a string (default: %(default)s).")
+    parser.add_argument('--troposphere', action="store_true", help="Tropospheric correction mode.")
     parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
-    parser.add_argument('--lat-step', type=float, required=True, help="Latitude step size.")
+    parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
+    parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
+    parser.add_argument('--save-name', type=str, default=None, help=f"Save the template with specified Volcano name ({os.getenv('TEMPLATES')}/Volcano.template).")
+    parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
+    parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
+    parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
 
     inps = parser.parse_args()
+
+    if inps.period:
+        for p in inps.period:
+            delimiters = '[,:\-\s]'
+            dates = re.split(delimiters, p)
+
+            if len(dates[0]) and len(dates[1]) != 8:
+                msg = 'Date format not valid, it must be in the format YYYYMMDD'
+                raise ValueError(msg)
+
+            inps.start_date.append(dates[0])
+            inps.end_date.append(dates[1])
+    else:
+        if not inps.start_date:
+            inps.start_date = "20160601"
+        if not inps.end_date:
+            inps.end_date = datetime.datetime.now().strftime("%Y%m%d")
 
     return inps
 
 
-def generate_config(path, lat1, lat2, lon1, lon2, topLon1, topLon2, swath, tropo, miaLon1, miaLon2, lat_step, lon_step, thresh):
+def get_satellite_name(satellite):
+    if satellite == 'Sen':
+        return 'SENTINEL-1A,SENTINEL-1B'
+    elif satellite == 'Radarsat':
+        return 'RADARSAT2'
+    elif satellite == 'TerraSAR':
+        return 'TerraSAR-X'
+    else:
+        raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
+
+
+def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, swath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh):
     config = f"""\
 ######################################################
 cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
 processor                         = isce
-ssaraopt.platform                 = SENTINEL-1A,SENTINEL-1B
+ssaraopt.platform                 = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
 ssaraopt.relativeOrbit            = {path}
-ssaraopt.startDate                = 20160601
-#ssaraopt.endDate                  = 20211130
+ssaraopt.startDate                = {start_date}  # YYYYMMDD
+ssaraopt.endDate                  = {end_date}    # YYYYMMDD
 hazard_products_flag              = False
 #insarmaps_flag                     = True
 ######################################################
@@ -103,21 +140,26 @@ minsar.insarmaps_dataset          = filt*DS
 def main(iargs=None):
     inps = create_parser() if not isinstance(iargs, argparse.Namespace) else iargs
 
-    inps.polygon = inps.polygon.replace("POLYGON((", "").replace("))", "")
+    if inps.url:
+        inps.path, satellite, node, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
+    else:
+        inps.polygon = inps.polygon.replace("POLYGON((", "").replace("))", "")
 
-    latitude = []
-    longitude = []
+        latitude = []
+        longitude = []
 
-    for word in inps.polygon.split(','):
-        if (float(word.split(' ')[1])) not in latitude:
-            latitude.append(float(word.split(' ')[1]))
-        if (float(word.split(' ')[0])) not in longitude:
-            longitude.append(float(word.split(' ')[0]))
+        for word in inps.polygon.split(','):
+            if (float(word.split(' ')[1])) not in latitude:
+                latitude.append(float(word.split(' ')[1]))
+            if (float(word.split(' ')[0])) not in longitude:
+                longitude.append(float(word.split(' ')[0]))
 
-    lon1, lon2 = round(min(longitude),2), round(max(longitude),2)
-    lat1, lat2 = round(min(latitude),2), round(max(latitude),2)
+        lon1, lon2 = round(min(longitude),2), round(max(longitude),2)
+        lat1, lat2 = round(min(latitude),2), round(max(latitude),2)
 
-##### MIAplpy check for longitude #####
+        satellite = get_satellite_name(inps.satellite)
+
+##### Miaplpy check for longitude #####
     if abs(lon1 - lon2) > 0.2:
         val = (abs(lon1 - lon2) - 0.2)/2
         if lon1 > 0:
@@ -131,7 +173,7 @@ def main(iargs=None):
     else:
         miaLon1 = lon1
         miaLon2 = lon2
-########################################
+#######################################
 
 ##### TopStack check for longitude #####
     if abs(lon1 - lon2) < 5:
@@ -151,13 +193,14 @@ def main(iargs=None):
 
     lon_step = round(inps.lat_step / math.cos(math.radians(int(lat1))), 5)
 
-    print(f"Latitude range: lat1 = {lat1}, lat2 = {lat2}")
-    print(f"Longitude range: lon1 = {lon1}, lon2 = {lon2}")
-    print(f"Miaplpy longitude range: miaLon1 = {miaLon1}, miaLon2 = {miaLon2}")
-    print(f"Topstack longitude range: topLon1 = {topLon1}, topLon2 = {topLon2}")
+    print(f"Latitude range: {lat1}, {lat2}")
+    print(f"Longitude range: {lon1}, {lon2}")
+    print(f"Miaplpy longitude range: {miaLon1}, {miaLon2}")
+    print(f"Topstack longitude range: {topLon1}, {topLon2}")
 
     template = generate_config(
     path=inps.path,
+    satellite=satellite,
     lat1=lat1,
     lat2=lat2,
     lon1=lon1,
@@ -165,17 +208,28 @@ def main(iargs=None):
     topLon1=topLon1,
     topLon2=topLon2,
     swath=inps.swath,
-    tropo=inps.tropo,
+    tropo=inps.troposphere,
     miaLon1=miaLon1,
     miaLon2=miaLon2,
     lat_step=inps.lat_step,
     lon_step=lon_step,
+    start_date=inps.start_date,
+    end_date=inps.end_date,
     thresh=inps.thresh
 )
 
-    pyperclip.copy(template)
-    print(template)
-    print('-'*100)
+    if inps.save_name:
+        if "SEN" in satellite[:4].upper():
+            sat = "Sen"
+
+        template_name = os.path.join(os.getenv('TEMPLATES'), inps.save_name + sat + node + inps.path + '.template')
+        with open(template_name, 'w') as f:
+            f.write(template)
+            print(f"Template saved in {template_name}")
+    else:
+        pyperclip.copy(template)
+        print(template)
+        print('-'*100)
 
 if __name__ == '__main__':
     main(iargs=sys.argv)
