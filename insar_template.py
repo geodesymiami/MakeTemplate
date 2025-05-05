@@ -32,6 +32,8 @@ def create_parser():
     parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
     parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
     parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
+    parser.add_argument("--jeststream", action="store_true", help="Upload on jetstream")
+    parser.add_argument("--insarmaps", action="store_true", help="Upload on insarmaps")
 
     inps = parser.parse_args()
 
@@ -66,7 +68,7 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, swath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh):
+def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, swath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
     config = f"""\
 ######################################################
 cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
@@ -130,8 +132,8 @@ miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
 miaplpy.timeseries.minTempCoh     = 0.50     # auto for 0.5
 mintpy.networkInversion.minTempCoh = {thresh}
 #############################################
-minsar.upload_flag                = False    # [True / False ], upload to jetstream (Default: False)
-minsar.insarmaps_flag             = False
+minsar.upload_flag                = {jetstream}    # [True / False ], upload to jetstream (Default: False)
+minsar.insarmaps_flag             = {insarmaps}
 minsar.insarmaps_dataset          = filt*DS
 #############################################
 """
