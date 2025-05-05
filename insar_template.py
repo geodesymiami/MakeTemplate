@@ -194,7 +194,7 @@ def main(iargs=None):
         topLon2 = max(lon1, lon2)
 ########################################
 
-    lon_step = round(inps.lat_step / math.cos(math.radians(int(lat1))), 5)
+    lon_step = round(inps.lat_step / math.cos(math.radians(float(lat1))), 5)
 
     print(f"Latitude range: {lat1}, {lat2}")
     print(f"Longitude range: {lon1}, {lon2}")
