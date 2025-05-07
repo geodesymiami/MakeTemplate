@@ -218,7 +218,9 @@ def main(iargs=None):
     lon_step=lon_step,
     start_date=inps.start_date,
     end_date=inps.end_date,
-    thresh=inps.thresh
+    thresh=inps.thresh,
+    jetstream=inps.jeststream,
+    insarmaps=inps.insarmaps
 )
 
     if inps.save_name:
