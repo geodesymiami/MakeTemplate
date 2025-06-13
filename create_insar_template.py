@@ -4,7 +4,6 @@ import sys
 import math
 import argparse
 import datetime
-import pyperclip
 import asf_extractor
 
 
@@ -20,9 +19,11 @@ def create_parser():
     epilog = EXAMPLE
     parser = argparse.ArgumentParser(description=synopsis, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
 
+    parser.add_argument('--excel', type=str, help="Path to the Excel file with volcano data.")
     parser.add_argument('--url', type=str, help="URL to the ASF data.")
     parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
     parser.add_argument('--path', type=int, help="Path number.")
+    parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
     parser.add_argument('--swath', type=str, default='1 2 3', help="Swath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphere', action="store_true", help="Tropospheric correction mode.")
     parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
@@ -55,6 +56,99 @@ def create_parser():
             inps.end_date = datetime.datetime.now().strftime("%Y%m%d")
 
     return inps
+
+
+def miaplpy_check_longitude(lon1, lon2):
+    """
+    Adjusts longitude values based on the Miaplpy criteria.
+    """
+    if abs(lon1 - lon2) > 0.2:
+        val = (abs(lon1 - lon2) - 0.2) / 2
+        miaLon1 = round(lon1 - val, 2) if lon1 > 0 else round(lon1 + val, 2)
+        miaLon2 = round(lon2 + val, 2) if lon2 > 0 else round(lon2 - val, 2)
+    else:
+        miaLon1 = lon1
+        miaLon2 = lon2
+    return miaLon1, miaLon2
+
+
+def topstack_check_longitude(lon1, lon2):
+    """
+    Adjusts longitude values based on the TopStack criteria.
+    """
+    if abs(lon1 - lon2) < 5:
+        val = (5 - abs(lon1 - lon2)) / 2
+        topLon1 = round(lon1 + val, 2) if lon1 > 0 else round(lon1 - val, 2)
+        topLon2 = round(lon2 - val, 2) if lon2 > 0 else round(lon2 + val, 2)
+    else:
+        topLon1 = min(lon1, lon2)
+        topLon2 = max(lon1, lon2)
+    return topLon1, topLon2
+
+
+def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+    """
+    Creates an InSAR template configuration.
+
+    Args:
+        inps: Input parameters object containing various attributes.
+        satellite: Satellite name or identifier.
+        lat1, lat2: Latitude range.
+        lon1, lon2: Longitude range.
+        miaLon1, miaLon2: Miaplpy longitude range.
+        topLon1, topLon2: Topstack longitude range.
+
+    Returns:
+        The generated template configuration.
+    """
+    lon_step = round(inps.lat_step / math.cos(math.radians(float(lat1))), 5)
+
+    print(f"Latitude range: {lat1}, {lat2}")
+    print(f"Longitude range: {lon1}, {lon2}")
+    print(f"Miaplpy longitude range: {miaLon1}, {miaLon2}")
+    print(f"Topstack longitude range: {topLon1}, {topLon2}")
+
+    template = generate_config(
+        path=inps.path,
+        satellite=satellite,
+        lat1=lat1,
+        lat2=lat2,
+        lon1=lon1,
+        lon2=lon2,
+        topLon1=topLon1,
+        topLon2=topLon2,
+        swath=inps.swath,
+        tropo=inps.troposphere,
+        miaLon1=miaLon1,
+        miaLon2=miaLon2,
+        lat_step=inps.lat_step,
+        lon_step=lon_step,
+        start_date=inps.start_date,
+        end_date=inps.end_date,
+        thresh=inps.thresh,
+        jetstream=inps.jeststream,
+        insarmaps=inps.insarmaps
+    )
+
+    return template
+
+
+def parse_polygon(polygon):
+        polygon = polygon.replace("POLYGON((", "").replace("))", "")
+
+        latitude = []
+        longitude = []
+
+        for word in polygon.split(','):
+            if (float(word.split(' ')[1])) not in latitude:
+                latitude.append(float(word.split(' ')[1]))
+            if (float(word.split(' ')[0])) not in longitude:
+                longitude.append(float(word.split(' ')[0]))
+
+        lon1, lon2 = round(min(longitude),2), round(max(longitude),2)
+        lat1, lat2 = round(min(latitude),2), round(max(latitude),2)
+
+        return lat1, lat2, lon1, lon2
 
 
 def get_satellite_name(satellite):
@@ -142,99 +236,97 @@ minsar.insarmaps_dataset          = filt*DS
 
 def main(iargs=None):
     inps = create_parser() if not isinstance(iargs, argparse.Namespace) else iargs
+    data_collection = []
 
-    if inps.url:
-        inps.path, satellite, node, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
+    if inps.excel:
+        from read_excel import main
+        df = main(inps.excel)
+
+        for index, row in df.iterrows():
+            lat1, lat2, lon1, lon2 = parse_polygon(row.polygon)
+
+            # Perform checks
+            miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
+            topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
+
+            # Create processed values dictionary
+            processed_values = {
+                'latitude1': lat1,
+                'latitude2': lat2,
+                'longitude1': lon1,
+                'longitude2': lon2,
+                'miaplpy.longitude1': miaLon1,
+                'miaplpy.longitude2': miaLon2,
+                'topsStack.longitude1': topLon1,
+                'topsStack.longitude2': topLon2,
+            }
+
+            # Update row dictionary and append to collection
+            row_dict = row.to_dict()
+            row_dict.update(processed_values)
+            data_collection.append(row_dict)
     else:
-        inps.polygon = inps.polygon.replace("POLYGON((", "").replace("))", "")
-
-        latitude = []
-        longitude = []
-
-        for word in inps.polygon.split(','):
-            if (float(word.split(' ')[1])) not in latitude:
-                latitude.append(float(word.split(' ')[1]))
-            if (float(word.split(' ')[0])) not in longitude:
-                longitude.append(float(word.split(' ')[0]))
-
-        lon1, lon2 = round(min(longitude),2), round(max(longitude),2)
-        lat1, lat2 = round(min(latitude),2), round(max(latitude),2)
-
-        satellite = get_satellite_name(inps.satellite)
-
-##### Miaplpy check for longitude #####
-    if abs(lon1 - lon2) > 0.2:
-        val = (abs(lon1 - lon2) - 0.2)/2
-        if lon1 > 0:
-            miaLon1 = round(lon1 - val, 2)
+        # Handle URL or polygon input
+        if inps.url:
+            path, satellite, direction, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
         else:
-            miaLon1 = round(lon1 + val, 2)
-        if lon2 > 0:
-            miaLon2 = round(lon2 + val, 2)
-        else:
-            miaLon2 = round(lon2 - val, 2)
-    else:
-        miaLon1 = lon1
-        miaLon2 = lon2
-#######################################
+            lat1, lat2, lon1, lon2 = parse_polygon(inps.polygon)
+            satellite = get_satellite_name(inps.satellite)
+            direction = inps.direction
+            path = inps.path
 
-##### TopStack check for longitude #####
-    if abs(lon1 - lon2) < 5:
-        val = (5 - abs(lon1 - lon2))/2
-        if lon1 > 0:
-            topLon1 = round(lon1 + val, 2)
-        else:
-            topLon1 = round(lon1 - val, 2)
-        if lon2 > 0:
-            topLon2 = round(lon2 - val, 2)
-        else:
-            topLon2 = round(lon2 + val, 2)
-    else:
-        topLon1 = min(lon1, lon2)
-        topLon2 = max(lon1, lon2)
-########################################
+        # Perform checks
+        miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
+        topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
 
-    lon_step = round(inps.lat_step / math.cos(math.radians(float(lat1))), 5)
+        # Create processed values dictionary
+        processed_values = {
+            'name': inps.name if hasattr(inps, 'name') else 'Unknown',
+            'direction': direction,
+            'ssaraopt.startDate': inps.startDate if hasattr(inps, 'startDate') else 'auto',
+            'ssaraopt.endDate': inps.endDate if hasattr(inps, 'endDate') else 'auto',
+            'ssaraopt.relativeOrbit': inps.relativeOrbit if hasattr(inps, 'relativeOrbit') else None,
+            'topsStack.subswath': inps.swath if hasattr(inps, 'swath') else None,
+            'mintpy.troposphericDelay': inps.troposphericDelay if hasattr(inps, 'troposphericDelay') else 'auto',
+            'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
+            'satellite': satellite,
+            'latitude1': lat1,
+            'latitude2': lat2,
+            'longitude1': lon1,
+            'longitude2': lon2,
+            'miaplpy.longitude1': miaLon1,
+            'miaplpy.longitude2': miaLon2,
+            'topsStack.longitude1': topLon1,
+            'topsStack.longitude2': topLon2,
+            'path': path
+        }
 
-    print(f"Latitude range: {lat1}, {lat2}")
-    print(f"Longitude range: {lon1}, {lon2}")
-    print(f"Miaplpy longitude range: {miaLon1}, {miaLon2}")
-    print(f"Topstack longitude range: {topLon1}, {topLon2}")
+        # Append processed values to collection
+        data_collection.append(processed_values)
 
-    template = generate_config(
-    path=inps.path,
-    satellite=satellite,
-    lat1=lat1,
-    lat2=lat2,
-    lon1=lon1,
-    lon2=lon2,
-    topLon1=topLon1,
-    topLon2=topLon2,
-    swath=inps.swath,
-    tropo=inps.troposphere,
-    miaLon1=miaLon1,
-    miaLon2=miaLon2,
-    lat_step=inps.lat_step,
-    lon_step=lon_step,
-    start_date=inps.start_date,
-    end_date=inps.end_date,
-    thresh=inps.thresh,
-    jetstream=inps.jeststream,
-    insarmaps=inps.insarmaps
-)
+    for data in data_collection:
+        template = create_insar_template(
+            inps=inps,
+            satellite=data.get('satellite'),
+            lat1=data.get('latitude1'),
+            lat2=data.get('latitude2'),
+            lon1=data.get('longitude1'),
+            lon2=data.get('longitude2'),
+            miaLon1=data.get('miaplpy.longitude1'),
+            miaLon2=data.get('miaplpy.longitude2'),
+            topLon1=data.get('topsStack.longitude1'),
+            topLon2=data.get('topsStack.longitude2')
+        )
 
-    if inps.save_name:
-        if "SEN" in satellite[:4].upper():
-            sat = "Sen"
-
-        template_name = os.path.join(os.getenv('TEMPLATES'), inps.save_name + sat + node + inps.path + '.template')
-        with open(template_name, 'w') as f:
-            f.write(template)
-            print(f"Template saved in {template_name}")
-    else:
-        pyperclip.copy(template)
-        print(template)
-        print('-'*100)
+        if inps.save_name:
+            sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
+            template_name = os.path.join(
+                os.getenv('TEMPLATES'),
+                f"{inps.save_name}{sat}{data.get('direction')}{inps.path}.template"
+            )
+            with open(template_name, 'w') as f:
+                f.write(template)
+                print(f"Template saved in {template_name}")
 
 if __name__ == '__main__':
     main(iargs=sys.argv)
