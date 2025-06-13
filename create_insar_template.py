@@ -30,6 +30,7 @@ def create_parser():
     parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--save-name', type=str, default=None, help=f"Save the template with specified Volcano name ({os.getenv('TEMPLATES')}/Volcano.template).")
+    parser.add_argument('--save', action="store_true")
     parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
     parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
     parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
@@ -318,11 +319,12 @@ def main(iargs=None):
             topLon2=data.get('topsStack.longitude2')
         )
 
-        if inps.save_name:
+        if inps.save_name or inps.save:
+            name = inps.save_name if inps.save_name else data.get('name', '')
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
             template_name = os.path.join(
                 os.getenv('TEMPLATES'),
-                f"{inps.save_name}{sat}{data.get('direction')}{inps.path}.template"
+                f"{name}{sat}{data.get('direction')}{inps.path}.template"
             )
             with open(template_name, 'w') as f:
                 f.write(template)
