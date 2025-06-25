@@ -4,6 +4,8 @@ import sys
 import math
 import argparse
 import datetime
+from datetime import datetime as dt
+from datetime import timedelta as td
 import asf_extractor
 
 
@@ -25,7 +27,7 @@ def create_parser():
     parser.add_argument('--path', type=int, help="Path number.")
     parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
     parser.add_argument('--swath', type=str, default='1 2 3', help="Swath numbers as a string (default: %(default)s).")
-    parser.add_argument('--troposphere', action="store_true", help="Tropospheric correction mode.")
+    parser.add_argument('--troposphere', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
     parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
@@ -104,10 +106,10 @@ def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaL
     """
     lon_step = round(inps.lat_step / math.cos(math.radians(float(lat1))), 5)
 
-    print(f"Latitude range: {lat1}, {lat2}")
-    print(f"Longitude range: {lon1}, {lon2}")
-    print(f"Miaplpy longitude range: {miaLon1}, {miaLon2}")
-    print(f"Topstack longitude range: {topLon1}, {topLon2}")
+    print(f"Latitude range: {lat1}, {lat2}\n")
+    print(f"Longitude range: {lon1}, {lon2}\n")
+    print(f"Miaplpy longitude range: {miaLon1}, {miaLon2}\n")
+    print(f"Topstack longitude range: {topLon1}, {topLon2}\n")
 
     template = generate_config(
         path=inps.path,
@@ -250,6 +252,7 @@ def main(iargs=None):
             miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
             topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
 
+
             # Create processed values dictionary
             processed_values = {
                 'latitude1': lat1,
@@ -261,6 +264,13 @@ def main(iargs=None):
                 'topsStack.longitude1': topLon1,
                 'topsStack.longitude2': topLon2,
             }
+
+            inps.path = row.get('ssaraopt.relativeOrbit', '')
+            inps.start_date = row.get('ssaraopt.startDate', '')
+            yesterday = dt.now() - td(days=1)
+            inps.end_date = yesterday.strftime('%Y%m%d') if  'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', '')
+            inps.troposphere = row.get('mintpy.troposphericDelay', '')
+            inps.swath = row.get('topsStack.subswath', '')
 
             # Update row dictionary and append to collection
             row_dict = row.to_dict()
