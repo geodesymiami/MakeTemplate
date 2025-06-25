@@ -89,7 +89,7 @@ def topstack_check_longitude(lon1, lon2):
     return topLon1, topLon2
 
 
-def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+def create_insar_template(inps, path, swath, troposphere, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
     """
     Creates an InSAR template configuration.
 
@@ -104,7 +104,7 @@ def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaL
     Returns:
         The generated template configuration.
     """
-    lon_step = round(inps.lat_step / math.cos(math.radians(float(lat1))), 5)
+    lon_step = round(lat_step / math.cos(math.radians(float(lat1))), 5)
 
     print(f"Latitude range: {lat1}, {lat2}\n")
     print(f"Longitude range: {lon1}, {lon2}\n")
@@ -112,7 +112,7 @@ def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaL
     print(f"Topstack longitude range: {topLon1}, {topLon2}\n")
 
     template = generate_config(
-        path=inps.path,
+        path=path,
         satellite=satellite,
         lat1=lat1,
         lat2=lat2,
@@ -120,14 +120,14 @@ def create_insar_template(inps, satellite, lat1, lat2, lon1, lon2, miaLon1, miaL
         lon2=lon2,
         topLon1=topLon1,
         topLon2=topLon2,
-        swath=inps.swath,
-        tropo=inps.troposphere,
+        swath=swath,
+        tropo=troposphere,
         miaLon1=miaLon1,
         miaLon2=miaLon2,
-        lat_step=inps.lat_step,
+        lat_step=lat_step,
         lon_step=lon_step,
-        start_date=inps.start_date,
-        end_date=inps.end_date,
+        start_date=start_date,
+        end_date= end_date,
         thresh=inps.thresh,
         jetstream=inps.jeststream,
         insarmaps=inps.insarmaps
@@ -251,7 +251,7 @@ def main(iargs=None):
             # Perform checks
             miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
             topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
-
+            yesterday = dt.now() - td(days=1)
 
             # Create processed values dictionary
             processed_values = {
@@ -263,14 +263,13 @@ def main(iargs=None):
                 'miaplpy.longitude2': miaLon2,
                 'topsStack.longitude1': topLon1,
                 'topsStack.longitude2': topLon2,
-            }
+                'path': row.get('ssaraopt.relativeOrbit', ''),
+                'start_date': row.get('ssaraopt.startDate', ''),
+                'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
+                'troposphere': row.get('mintpy.troposphericDelay', 'auto'),
+                'swath': row.get('topsStack.subswath', ''),
 
-            inps.path = row.get('ssaraopt.relativeOrbit', '')
-            inps.start_date = row.get('ssaraopt.startDate', '')
-            yesterday = dt.now() - td(days=1)
-            inps.end_date = yesterday.strftime('%Y%m%d') if  'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', '')
-            inps.troposphere = row.get('mintpy.troposphericDelay', '')
-            inps.swath = row.get('topsStack.subswath', '')
+            }
 
             # Update row dictionary and append to collection
             row_dict = row.to_dict()
@@ -318,6 +317,12 @@ def main(iargs=None):
     for data in data_collection:
         template = create_insar_template(
             inps=inps,
+            path = data.get('path',''),
+            swath = data.get('swath', ''),
+            troposphere = data.get('troposphere', 'auto'),
+            lat_step = inps.lat_step,
+            start_date = data.get('start_date', ''),
+            end_date = data.get('end_date', ''),
             satellite=data.get('satellite'),
             lat1=data.get('latitude1'),
             lat2=data.get('latitude2'),
@@ -334,7 +339,7 @@ def main(iargs=None):
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
             template_name = os.path.join(
                 os.getenv('TEMPLATES'),
-                f"{name}{sat}{data.get('direction')}{inps.path}.template"
+                f"{name}{sat}{data.get('direction')}{data.get('path')}.template"
             )
             with open(template_name, 'w') as f:
                 f.write(template)
