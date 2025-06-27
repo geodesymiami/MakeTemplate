@@ -253,6 +253,8 @@ def main(iargs=None):
             topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
             yesterday = dt.now() - td(days=1)
 
+            satellite = get_satellite_name(row.get('satellite'))
+
             # Create processed values dictionary
             processed_values = {
                 'latitude1': lat1,
@@ -268,6 +270,7 @@ def main(iargs=None):
                 'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
                 'troposphere': row.get('mintpy.troposphericDelay', 'auto'),
                 'swath': row.get('topsStack.subswath', ''),
+                'satellite': satellite
 
             }
 
