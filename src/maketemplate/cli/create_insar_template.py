@@ -6,7 +6,7 @@ import argparse
 import datetime
 from datetime import datetime as dt
 from datetime import timedelta as td
-import asf_extractor
+import src.maketemplate.asf_extractor as asf_extractor
 
 
 EXAMPLE = f"""
@@ -245,7 +245,7 @@ def main(iargs=None):
     data_collection = []
 
     if inps.excel:
-        from read_excel import main
+        from src.maketemplate.read_excel import main
         df = main(inps.excel)
 
         for index, row in df.iterrows():
