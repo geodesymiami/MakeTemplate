@@ -14,8 +14,8 @@ EXAMPLE = f"""
 DEFAULT FULLPATH FOR xlsfile IS ${os.getenv('SCRATCHDIR')}
 
 create_insar_template.py --xlsfile Central_America.xlsx --save
-create_insar_template.py --swath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
-create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --path 54 --swath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
+create_insar_template.py --subswath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
+create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --path 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
 
@@ -30,7 +30,7 @@ def create_parser():
     parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
     parser.add_argument('--path', type=int, help="Path number.")
     parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
-    parser.add_argument('--swath', type=str, default='1 2 3', help="Swath numbers as a string (default: %(default)s).")
+    parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphere', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
     parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
@@ -93,7 +93,7 @@ def topstack_check_longitude(lon1, lon2):
     return topLon1, topLon2
 
 
-def create_insar_template(inps, path, swath, troposphere, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+def create_insar_template(inps, path, subswath, troposphere, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
     """
     Creates an InSAR template configuration.
 
@@ -124,7 +124,7 @@ def create_insar_template(inps, path, swath, troposphere, lat_step, start_date, 
         lon2=lon2,
         topLon1=topLon1,
         topLon2=topLon2,
-        swath=swath,
+        subswath=subswath,
         tropo=troposphere,
         miaLon1=miaLon1,
         miaLon2=miaLon2,
@@ -169,7 +169,7 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, swath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
+def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
     config = f"""\
 ######################################################
 cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
@@ -183,7 +183,7 @@ hazard_products_flag              = False
 ######################################################
 #topsStack.boundingBox             = {lat1} {lat2} {topLon1} {topLon2}    # -1 0.15 -91.6 -90.9
 #topsStack.excludeDates            =  20240926
-topsStack.subswath                = {swath} # '1 2'
+topsStack.subswath                = {subswath} # '1 2'
 topsStack.numConnections          = 4    # comment
 topsStack.azimuthLooks            = 3    # comment
 topsStack.rangeLooks              = 15   # comment
@@ -273,7 +273,7 @@ def main(iargs=None):
                 'start_date': row.get('ssaraopt.startDate', ''),
                 'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
                 'troposphere': row.get('mintpy.troposphericDelay', 'auto'),
-                'swath': row.get('topsStack.subswath', ''),
+                'subswath': row.get('topsStack.subswath', ''),
                 'satellite': satellite
 
             }
@@ -303,7 +303,7 @@ def main(iargs=None):
             'ssaraopt.startDate': inps.startDate if hasattr(inps, 'startDate') else 'auto',
             'ssaraopt.endDate': inps.endDate if hasattr(inps, 'endDate') else 'auto',
             'ssaraopt.relativeOrbit': inps.relativeOrbit if hasattr(inps, 'relativeOrbit') else None,
-            'topsStack.subswath': inps.swath if hasattr(inps, 'swath') else None,
+            'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
             'mintpy.troposphericDelay': inps.troposphericDelay if hasattr(inps, 'troposphericDelay') else 'auto',
             'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
             'satellite': satellite,
@@ -325,7 +325,7 @@ def main(iargs=None):
         template = create_insar_template(
             inps=inps,
             path = data.get('path',''),
-            swath = data.get('swath', ''),
+            subswath = data.get('subswath', ''),
             troposphere = data.get('troposphere', 'auto'),
             lat_step = inps.lat_step,
             start_date = data.get('start_date', ''),
