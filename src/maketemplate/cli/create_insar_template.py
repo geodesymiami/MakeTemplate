@@ -11,9 +11,9 @@ import src.maketemplate.asf_extractor as asf_extractor
 
 
 EXAMPLE = f"""
-DEFAULT FULLPATH FOR EXCEL IS ${os.getenv('SCRATCHDIR')}
+DEFAULT FULLPATH FOR xlsfile IS ${os.getenv('SCRATCHDIR')}
 
-create_insar_template.py --excel Central_America.xlsx --save
+create_insar_template.py --xlsfile Central_America.xlsx --save
 create_insar_template.py --swath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
 create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --path 54 --swath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
 """
@@ -25,7 +25,7 @@ def create_parser():
     epilog = EXAMPLE
     parser = argparse.ArgumentParser(description=synopsis, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('--excel', type=str, help="Path to the Excel file with volcano data.")
+    parser.add_argument('--xlsfile', type=str, help="Path to the xlsfile file with volcano data.")
     parser.add_argument('--url', type=str, help="URL to the ASF data.")
     parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
     parser.add_argument('--path', type=int, help="Path number.")
@@ -245,9 +245,9 @@ def main(iargs=None):
     inps = create_parser() if not isinstance(iargs, argparse.Namespace) else iargs
     data_collection = []
 
-    if inps.excel:
+    if inps.xlsfile:
         from src.maketemplate.read_excel import main
-        df = main(inps.excel)
+        df = main(inps.xlsfile)
 
         for index, row in df.iterrows():
             lat1, lat2, lon1, lon2 = parse_polygon(row.polygon)
