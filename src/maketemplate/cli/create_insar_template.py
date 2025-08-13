@@ -15,7 +15,7 @@ DEFAULT FULLPATH FOR xlsfile IS ${os.getenv('SCRATCHDIR')}
 
 create_insar_template.py --xlsfile Central_America.xlsx --save
 create_insar_template.py --subswath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
-create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --path 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
+create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --relativeOrbit 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
 
@@ -28,10 +28,10 @@ def create_parser():
     parser.add_argument('--xlsfile', type=str, help="Path to the xlsfile file with volcano data.")
     parser.add_argument('--url', type=str, help="URL to the ASF data.")
     parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
-    parser.add_argument('--path', type=int, help="Path number.")
+    parser.add_argument('--relativeOrbit', dest='relative_orbit', type=int, help="relative orbit number.")
     parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
-    parser.add_argument('--troposphere', type=str, default='auto', help="Tropospheric correction mode.")
+    parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
     parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
@@ -93,7 +93,7 @@ def topstack_check_longitude(lon1, lon2):
     return topLon1, topLon2
 
 
-def create_insar_template(inps, path, subswath, troposphere, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_method, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
     """
     Creates an InSAR template configuration.
 
@@ -116,7 +116,7 @@ def create_insar_template(inps, path, subswath, troposphere, lat_step, start_dat
     print(f"Topstack longitude range: {topLon1}, {topLon2}\n")
 
     template = generate_config(
-        path=path,
+        relative_orbit=relative_orbit,
         satellite=satellite,
         lat1=lat1,
         lat2=lat2,
@@ -125,7 +125,7 @@ def create_insar_template(inps, path, subswath, troposphere, lat_step, start_dat
         topLon1=topLon1,
         topLon2=topLon2,
         subswath=subswath,
-        tropo=troposphere,
+        tropo=tropospheric_delay_method,
         miaLon1=miaLon1,
         miaLon2=miaLon2,
         lat_step=lat_step,
@@ -169,13 +169,13 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(path, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
+def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
     config = f"""\
 ######################################################
 cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
 processor                         = isce
 ssaraopt.platform                 = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
-ssaraopt.relativeOrbit            = {path}
+ssaraopt.relativeOrbit            = {relative_orbit}
 ssaraopt.startDate                = {start_date}  # YYYYMMDD
 ssaraopt.endDate                  = {end_date}    # YYYYMMDD
 hazard_products_flag              = False
@@ -269,10 +269,10 @@ def main(iargs=None):
                 'miaplpy.longitude2': miaLon2,
                 'topsStack.longitude1': topLon1,
                 'topsStack.longitude2': topLon2,
-                'path': row.get('ssaraopt.relativeOrbit', ''),
+                'relative_orbit': row.get('ssaraopt.relativeOrbit', ''),
                 'start_date': row.get('ssaraopt.startDate', ''),
                 'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
-                'troposphere': row.get('mintpy.troposphericDelay', 'auto'),
+                'tropospheric_delay_method': row.get('mintpy.troposphericDelay', 'auto'),
                 'subswath': row.get('topsStack.subswath', ''),
                 'satellite': satellite
 
@@ -285,12 +285,12 @@ def main(iargs=None):
     else:
         # Handle URL or polygon input
         if inps.url:
-            path, satellite, direction, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
+            relative_orbit, satellite, direction, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
         else:
             lat1, lat2, lon1, lon2 = parse_polygon(inps.polygon)
             satellite = get_satellite_name(inps.satellite)
             direction = inps.direction
-            path = inps.path
+            relative_orbit = inps.relative_orbit
 
         # Perform checks
         miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
@@ -302,7 +302,7 @@ def main(iargs=None):
             'direction': direction,
             'ssaraopt.startDate': inps.startDate if hasattr(inps, 'startDate') else 'auto',
             'ssaraopt.endDate': inps.endDate if hasattr(inps, 'endDate') else 'auto',
-            'ssaraopt.relativeOrbit': inps.relativeOrbit if hasattr(inps, 'relativeOrbit') else None,
+            'ssaraopt.relativeOrbit': inps.relative_orbit if hasattr(inps, 'relative_orbit') else None,
             'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
             'mintpy.troposphericDelay': inps.troposphericDelay if hasattr(inps, 'troposphericDelay') else 'auto',
             'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
@@ -315,7 +315,7 @@ def main(iargs=None):
             'miaplpy.longitude2': miaLon2,
             'topsStack.longitude1': topLon1,
             'topsStack.longitude2': topLon2,
-            'path': path
+            'relative_orbit': relative_orbit
         }
 
         # Append processed values to collection
@@ -324,9 +324,9 @@ def main(iargs=None):
     for data in data_collection:
         template = create_insar_template(
             inps=inps,
-            path = data.get('path',''),
+            relative_orbit = data.get('relative_orbit',''),
             subswath = data.get('subswath', ''),
-            troposphere = data.get('troposphere', 'auto'),
+            tropospheric_delay_method = data.get('tropospheric_delay_method', 'auto'),
             lat_step = inps.lat_step,
             start_date = data.get('start_date', ''),
             end_date = data.get('end_date', ''),
@@ -346,7 +346,7 @@ def main(iargs=None):
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
             template_name = os.path.join(
                 os.getenv('TEMPLATES'),
-                f"{name}{sat}{data.get('direction')}{data.get('path')}.template"
+                f"{name}{sat}{data.get('direction')}{data.get('relative_orbit')}.template"
             )
             with open(template_name, 'w') as f:
                 f.write(template)
