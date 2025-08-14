@@ -172,71 +172,52 @@ def get_satellite_name(satellite):
 def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh, jetstream, insarmaps):
     config = f"""\
 ######################################################
-cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
-processor                         = isce
-ssaraopt.platform                 = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
-ssaraopt.relativeOrbit            = {relative_orbit}
-ssaraopt.startDate                = {start_date}  # YYYYMMDD
-ssaraopt.endDate                  = {end_date}    # YYYYMMDD
-hazard_products_flag              = False
-#insarmaps_flag                     = True
+ssaraopt.platform                  = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
+ssaraopt.relativeOrbit             = {relative_orbit}
+ssaraopt.startDate                 = {start_date}  # YYYYMMDD
+ssaraopt.endDate                   = {end_date}    # YYYYMMDD
 ######################################################
-#topsStack.boundingBox             = {lat1} {lat2} {topLon1} {topLon2}    # -1 0.15 -91.6 -90.9
+topsStack.subswath                 = {subswath} # '1 2'
+topsStack.numConnections           = 3    # comment
+topsStack.azimuthLooks             = 5    # comment
+topsStack.rangeLooks               = 20   # comment
+topsStack.filtStrength             = 0.2  # comment
+topsStack.unwMethod                = snaphu  # comment
+topsStack.coregistration           = auto  # [NESD geometry], auto for NESD
 #topsStack.excludeDates            =  20240926
-topsStack.subswath                = {subswath} # '1 2'
-topsStack.numConnections          = 4    # comment
-topsStack.azimuthLooks            = 3    # comment
-topsStack.rangeLooks              = 15   # comment
-topsStack.filtStrength            = 0.2  # comment
-topsStack.unwMethod               = snaphu  # comment
-topsStack.coregistration          = auto  # [NESD geometry], auto for NESD
-#topsStack.referenceDate           = 20151220
-
 ######################################################
-mintpy.load.autoPath              = yes
-mintpy.subset.lalo                = {lat1}:{lat2},{lon1}:{lon2}
-mintpy.compute.cluster            = local #[local / slurm / pbs / lsf / none], auto for none, cluster type
-mintpy.compute.numWorker          = 30 #[int > 1 / all], auto for 4 (local) or 40 (non-local), num of workers
-#mintpy.reference.lalo             = {lat1},{lon1}     # S of SN
-
-mintpy.networkInversion.parallel  = yes  #[yes / no], auto for no, parallel processing using dask
-mintpy.network.tempBaseMax        = auto  #[1-inf, no], auto for no, max temporal baseline in days
-mintpy.network.perpBaseMax        = auto  #[1-inf, no], auto for no, max perpendicular spatial baseline in meter
-mintpy.network.connNumMax         = auto  #[1-inf, no], auto for no, max number of neighbors for each acquisition
-mintpy.network.coherenceBased     = auto  #[yes / no], auto for no, exclude interferograms with coherence < minCoherence
-mintpy.network.aoiLALO            = auto  #[S:N,W:E / no], auto for no - use the whole area
-mintpy.networkInversion.minTempCoh  = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
-
-mintpy.troposphericDelay.method   = {tropo}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
-mintpy.save.hdfEos5               = yes   #[yes / update / no], auto for no, save timeseries to UNAVCO InSAR Archive format
-mintpy.save.hdfEos5.update        = yes   #[yes / no], auto for no, put XXXXXXXX as endDate in output filename
-mintpy.save.hdfEos5.subset        = yes   #[yes / no], auto for no, put subset range info in output filename
-mintpy.save.kmz                   = yes   #[yes / no], auto for yes, save geocoded velocity to Google Earth KMZ file
-####################
-minsar.miaplpyDir.addition         = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
-miaplpy.subset.lalo                = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
-miaplpy.load.startDate             = auto # 20200101
-miaplpy.load.endDate               = auto
-mintpy.geocode.laloStep            = {lat_step},{lon_step}
-mintpy.reference.minCoherence      = 0.5      #[0.0-1.0], auto for 0.85, minimum coherence for auto method
-miaplpy.interferograms.delaunayBaselineRatio = 4
-miaplpy.interferograms.delaunayTempThresh    = 120     # [days] temporal threshold for delaunay triangles, auto for 120
-miaplpy.interferograms.delaunayPerpThresh    = 200     # [meters] Perp baseline threshold for delaunay triangles, auto for 200
-miaplpy.interferograms.networkType           = single_reference # network
-miaplpy.interferograms.networkType           = delaunay # network
-#############################################
+mintpy.load.autoPath               = yes
+mintpy.compute.cluster             = local #[local / slurm / pbs / lsf / none], auto for none, cluster type
+mintpy.compute.numWorker           = 40 #[int > 1 / all], auto for 4 (local) or 40 (non-local), num of workers
+mintpy.plot.maxMemory              = 180  #[float], auto for 4, max memory used by one call of view.py for plotting.
+mintpy.networkInversion.parallel   = yes  #[yes / no], auto for no, parallel processing using dask
+mintpy.save.hdfEos5                = yes   #[yes / update / no], auto for no, save timeseries to UNAVCO InSAR Archive format
+mintpy.save.hdfEos5.update         = yes   #[yes / no], auto for no, put XXXXXXXX as endDate in output filename
+mintpy.save.hdfEos5.subset         = yes   #[yes / no], auto for no, put subset range info in output filename
+mintpy.save.kmz                    = yes   #[yes / no], auto for yes, save geocoded velocity to Google Earth KMZ file
+mintpy.reference.minCoherence      = auto      #[0.0-1.0], auto for 0.85, minimum coherence for auto method
+mintpy.troposphericDelay.method    = {tropo}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
+mintpy.networkInversion.minTempCoh = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
+######################################################
 miaplpy.load.processor            = isce
-miaplpy.multiprocessing.numProcessor = 40
+miaplpy.multiprocessing.numProcessor= 40
 miaplpy.inversion.rangeWindow     = 24   # range window size for searching SHPs, auto for 15
 miaplpy.inversion.azimuthWindow   = 7    # azimuth window size for searching SHPs, auto for 15
 miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
-miaplpy.timeseries.minTempCoh     = 0.50     # auto for 0.5
+miaplpy.interferograms.networkType= delaunay # network
+######################################################
+minsar.miaplpyDir.addition         = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
+mintpy.subset.lalo                 = {lat1}:{lat2},{lon1}:{lon2}
+miaplpy.subset.lalo                = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
+miaplpy.load.startDate             = auto  # 20200101
+miaplpy.load.endDate               = auto 
+mintpy.geocode.laloStep            = {lat_step},{lon_step}
+miaplpy.timeseries.minTempCoh      = {min_temp_coh}      # auto for 0.5
 mintpy.networkInversion.minTempCoh = {min_temp_coh}
-#############################################
-minsar.upload_flag                = {jetstream}    # [True / False ], upload to jetstream (Default: False)
-minsar.insarmaps_flag             = {insarmaps}
-minsar.insarmaps_dataset          = filt*DS
-#############################################
+######################################################
+minsar.insarmaps_flag              = True
+minsar.upload_flag                 = True
+minsar.insarmaps_dataset           = filt*DS
 """
     return config
 
@@ -325,7 +306,7 @@ def main(iargs=None):
         template = create_insar_template(
             inps=inps,
             relative_orbit = data.get('relative_orbit',''),
-            subswath = data.get('subswath', ''),
+            subswath = data.get('topsStack.subswath', ''),
             tropospheric_delay_method = data.get('tropospheric_delay_method', 'auto'),
             lat_step = inps.lat_step,
             start_date = data.get('start_date', ''),
