@@ -40,8 +40,6 @@ def create_parser():
     parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
     parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
     parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
-    parser.add_argument("--jeststream", action="store_true", help="Upload on jetstream")
-    parser.add_argument("--insarmaps", action="store_true", help="Upload on insarmaps")
 
     inps = parser.parse_args()
 
@@ -132,9 +130,7 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
         lon_step=lon_step,
         start_date=inps.start_date[0],
         end_date= inps.end_date[0],
-        min_temp_coh=inps.min_temp_coh,
-        jetstream=inps.jeststream,
-        insarmaps=inps.insarmaps
+        min_temp_coh=inps.min_temp_coh
     )
 
     return template
@@ -169,7 +165,7 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh, jetstream, insarmaps):
+def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh):
     config = f"""\
 ######################################################
 ssaraopt.platform                  = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
