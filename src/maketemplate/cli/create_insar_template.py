@@ -16,6 +16,7 @@ DEFAULT FULLPATH FOR xlsfile IS ${os.getenv('SCRATCHDIR')}
 create_insar_template.py --xlsfile Central_America.xlsx --save
 create_insar_template.py --subswath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
 create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --relativeOrbit 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
+create_insar_template.py  --polygon 'POLYGON((27.1216 36.557,27.2123 36.557,27.2123 36.62,27.1216 36.62,27.1216 36.557))' --relativeOrbit 131 --start-date 20220101 --end-date 20220228 --filename volcano
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
 
@@ -32,13 +33,13 @@ def create_parser():
     parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
-    parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.7, help="Threshold value for temporal coherence.")
-    parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
+    parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.75, help="Threshold value for temporal coherence.")
+    parser.add_argument('--lat-step', type=float, default=0.008, help="Latitude step size (default: %(default)s).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--filename', dest='file_name', type=str, default=None, help=f"Name of template file (Default: Unknown).")
     parser.add_argument('--save', action="store_true")
-    parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
-    parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
+    parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, default=['20170101'],help='Start date')
+    parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, default=['auto'], help='End date')
     parser.add_argument('--dir', dest='out_dir', type=str, default=os.getcwd(), help='Output directory (Default: current directory.)')
     parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
 
@@ -124,7 +125,7 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
         topLon1=topLon1,
         topLon2=topLon2,
         subswath=subswath,
-        tropo=tropospheric_delay_method,
+        tropospheric_delay_method=tropospheric_delay_method,
         miaLon1=miaLon1,
         miaLon2=miaLon2,
         lat_step=lat_step,
@@ -166,7 +167,7 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh):
+def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropospheric_delay_method, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh):
     config = f"""\
 ######################################################
 ssaraopt.platform                  = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
@@ -193,7 +194,7 @@ mintpy.save.hdfEos5.update         = yes   #[yes / no], auto for no, put XXXXXXX
 mintpy.save.hdfEos5.subset         = yes   #[yes / no], auto for no, put subset range info in output filename
 mintpy.save.kmz                    = yes   #[yes / no], auto for yes, save geocoded velocity to Google Earth KMZ file
 mintpy.reference.minCoherence      = auto      #[0.0-1.0], auto for 0.85, minimum coherence for auto method
-mintpy.troposphericDelay.method    = {tropo}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
+mintpy.troposphericDelay.method    = {tropospheric_delay_method}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
 mintpy.networkInversion.minTempCoh = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
 ######################################################
 miaplpy.load.processor            = isce
@@ -282,7 +283,7 @@ def main(iargs=None):
             'ssaraopt.endDate': inps.end_date if hasattr(inps, 'end_date') else 'auto',
             'ssaraopt.relativeOrbit': inps.relative_orbit if hasattr(inps, 'relative_orbit') else None,
             'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
-            'mintpy.troposphericDelay': inps.troposphericDelay if hasattr(inps, 'troposphericDelay') else 'auto',
+            'mintpy.troposphericDelay.method': inps.tropospheric_delay_method,
             'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
             'satellite': satellite,
             'latitude1': lat1,
@@ -304,7 +305,7 @@ def main(iargs=None):
             inps=inps,
             relative_orbit = data.get('relative_orbit',''),
             subswath = data.get('topsStack.subswath', ''),
-            tropospheric_delay_method = data.get('tropospheric_delay_method', 'auto'),
+            tropospheric_delay_method = data.get('inps.tropospheric_delay_method', 'auto'),
             lat_step = inps.lat_step,
             start_date = data.get('start_date', ''),
             end_date = data.get('end_date', ''),
