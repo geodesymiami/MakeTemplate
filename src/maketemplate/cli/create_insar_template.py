@@ -32,7 +32,7 @@ def create_parser():
     parser.add_argument('--direction', type=str, choices=['A', 'D'], default='A', help="Flight direction (default: %(default)s).")
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
-    parser.add_argument('--thresh', type=float, default=0.7, help="Threshold value for temporal coherence.")
+    parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.7, help="Threshold value for temporal coherence.")
     parser.add_argument('--lat-step', type=float, default=0.0002, help="Latitude step size (default: %(default)s).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--filename', dest='file_name', type=str, default=None, help=f"Name of template file (Default: Unknown).")
@@ -130,9 +130,9 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
         miaLon2=miaLon2,
         lat_step=lat_step,
         lon_step=lon_step,
-        start_date=start_date,
-        end_date= end_date,
-        thresh=inps.thresh,
+        start_date=inps.start_date[0],
+        end_date= inps.end_date[0],
+        min_temp_coh=inps.min_temp_coh,
         jetstream=inps.jeststream,
         insarmaps=inps.insarmaps
     )
@@ -169,7 +169,7 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, thresh, jetstream, insarmaps):
+def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropo, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh, jetstream, insarmaps):
     config = f"""\
 ######################################################
 cleanopt                          = 0   # [ 0 / 1 / 2 / 3 / 4]   0,1: none 2: keep merged,geom_master,SLC 3: keep MINTPY 4: everything
@@ -231,7 +231,7 @@ miaplpy.inversion.rangeWindow     = 24   # range window size for searching SHPs,
 miaplpy.inversion.azimuthWindow   = 7    # azimuth window size for searching SHPs, auto for 15
 miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
 miaplpy.timeseries.minTempCoh     = 0.50     # auto for 0.5
-mintpy.networkInversion.minTempCoh = {thresh}
+mintpy.networkInversion.minTempCoh = {min_temp_coh}
 #############################################
 minsar.upload_flag                = {jetstream}    # [True / False ], upload to jetstream (Default: False)
 minsar.insarmaps_flag             = {insarmaps}
@@ -300,8 +300,8 @@ def main(iargs=None):
         processed_values = {
             'name': inps.name if hasattr(inps, 'name') else 'Unknown',
             'direction': direction,
-            'ssaraopt.startDate': inps.startDate if hasattr(inps, 'startDate') else 'auto',
-            'ssaraopt.endDate': inps.endDate if hasattr(inps, 'endDate') else 'auto',
+            'ssaraopt.startDate': inps.start_date if hasattr(inps, 'start_date') else 'auto',
+            'ssaraopt.endDate': inps.end_date if hasattr(inps, 'end_date') else 'auto',
             'ssaraopt.relativeOrbit': inps.relative_orbit if hasattr(inps, 'relative_orbit') else None,
             'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
             'mintpy.troposphericDelay': inps.troposphericDelay if hasattr(inps, 'troposphericDelay') else 'auto',
