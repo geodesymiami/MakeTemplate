@@ -39,6 +39,7 @@ def create_parser():
     parser.add_argument('--save', action="store_true")
     parser.add_argument('--start-date', nargs='*', metavar='YYYYMMDD', type=str, help='Start date of the search')
     parser.add_argument('--end-date', nargs='*', metavar='YYYYMMDD', type=str, help='End date of the search')
+    parser.add_argument('--dir', dest='out_dir', type=str, default=os.getcwd(), help='Output directory (Default: current directory.)')
     parser.add_argument('--period', nargs='*', metavar='YYYYMMDD:YYYYMMDD, YYYYMMDD,YYYYMMDD', type=str, help='Period of the search')
 
     inps = parser.parse_args()
@@ -321,10 +322,9 @@ def main(iargs=None):
         if inps.file_name or inps.save:
             name = inps.file_name if inps.file_name else data.get('name', '')
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
-            template_name = os.path.join(
-                os.getenv('TEMPLATES'),
-                f"{name}{sat}{data.get('direction')}{data.get('relative_orbit')}.template"
-            )
+            template_name = os.path.join(f"{name}{sat}{data.get('direction')}{data.get('relative_orbit')}.template")
+            if inps.out_dir:
+                template_name = os.path.join(inps.out_dir, template_name) 
             with open(template_name, 'w') as f:
                 f.write(template)
                 print(f"Template saved in {template_name}")
