@@ -20,7 +20,6 @@ create_insar_template.py  --polygon 'POLYGON((27.1216 36.557,27.2123 36.557,27.2
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
 
-
 def create_parser():
     synopsis = 'Create Template for insar processing'
     epilog = EXAMPLE
@@ -197,26 +196,26 @@ mintpy.reference.minCoherence      = auto      #[0.0-1.0], auto for 0.85, minimu
 mintpy.troposphericDelay.method    = {tropospheric_delay_method}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
 mintpy.networkInversion.minTempCoh = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
 ######################################################
-miaplpy.load.processor            = isce
-miaplpy.multiprocessing.numProcessor= 40
-miaplpy.inversion.rangeWindow     = 24   # range window size for searching SHPs, auto for 15
-miaplpy.inversion.azimuthWindow   = 7    # azimuth window size for searching SHPs, auto for 15
-miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
-miaplpy.interferograms.networkType= delaunay # network
-miaplpy.unwrap.snaphu.tileNumPixels = 10000000000     # number of pixels in a tile, auto for 10000000
+miaplpy.load.processor               = isce
+miaplpy.multiprocessing.numProcessor = 40
+miaplpy.inversion.rangeWindow        = 24   # range window size for searching SHPs, auto for 15
+miaplpy.inversion.azimuthWindow      = 7    # azimuth window size for searching SHPs, auto for 15
+miaplpy.timeseries.tempCohType       = full     # [full, average], auto for full.
+miaplpy.interferograms.networkType   = delaunay # network
+miaplpy.unwrap.snaphu.tileNumPixels  = 10000000000     # number of pixels in a tile, auto for 10000000
 ######################################################
-minsar.miaplpyDir.addition         = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
-mintpy.subset.lalo                 = {lat1}:{lat2},{lon1}:{lon2}
-miaplpy.subset.lalo                = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
-miaplpy.load.startDate             = auto  # 20200101
-miaplpy.load.endDate               = auto
-mintpy.geocode.laloStep            = {lat_step},{lon_step}
-miaplpy.timeseries.minTempCoh      = {min_temp_coh}      # auto for 0.5
-mintpy.networkInversion.minTempCoh = {min_temp_coh}
+minsar.miaplpyDir.addition           = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
+mintpy.subset.lalo                   = {lat1}:{lat2},{lon1}:{lon2}
+miaplpy.subset.lalo                  = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
+miaplpy.load.startDate               = auto  # 20200101
+miaplpy.load.endDate                 = auto
+mintpy.geocode.laloStep              = {lat_step},{lon_step}
+miaplpy.timeseries.minTempCoh        = {min_temp_coh}      # auto for 0.5
+mintpy.networkInversion.minTempCoh   = {min_temp_coh}
 ######################################################
-minsar.insarmaps_flag              = True
-minsar.upload_flag                 = True
-minsar.insarmaps_dataset           = filt*DS
+minsar.insarmaps_flag                = True
+minsar.upload_flag                   = True
+minsar.insarmaps_dataset             = filt*DS
 """
     return config
 
