@@ -203,12 +203,13 @@ miaplpy.inversion.rangeWindow     = 24   # range window size for searching SHPs,
 miaplpy.inversion.azimuthWindow   = 7    # azimuth window size for searching SHPs, auto for 15
 miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
 miaplpy.interferograms.networkType= delaunay # network
+miaplpy.unwrap.snaphu.tileNumPixels = 10000000000     # number of pixels in a tile, auto for 10000000
 ######################################################
 minsar.miaplpyDir.addition         = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
 mintpy.subset.lalo                 = {lat1}:{lat2},{lon1}:{lon2}
 miaplpy.subset.lalo                = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
 miaplpy.load.startDate             = auto  # 20200101
-miaplpy.load.endDate               = auto 
+miaplpy.load.endDate               = auto
 mintpy.geocode.laloStep            = {lat_step},{lon_step}
 miaplpy.timeseries.minTempCoh      = {min_temp_coh}      # auto for 0.5
 mintpy.networkInversion.minTempCoh = {min_temp_coh}
@@ -325,7 +326,7 @@ def main(iargs=None):
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
             template_name = os.path.join(f"{name}{sat}{data.get('direction')}{data.get('relative_orbit')}.template")
             if inps.out_dir:
-                template_name = os.path.join(inps.out_dir, template_name) 
+                template_name = os.path.join(inps.out_dir, template_name)
             with open(template_name, 'w') as f:
                 f.write(template)
                 print(f"Template saved in {template_name}")
