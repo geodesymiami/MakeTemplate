@@ -33,7 +33,7 @@ def create_parser():
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.75, help="Threshold value for temporal coherence.")
-    parser.add_argument('--lat-step', type=float, default=0.008, help="Latitude step size (default: %(default)s).")
+    parser.add_argument('--lat-step', dest='lalo_step', type=float, default=15, help="Latitude step size in meters (default: %(default)s meters).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--filename', dest='file_name', type=str, default=None, help=f"Name of template file (Default: Unknown).")
     parser.add_argument('--save', action="store_true")
@@ -92,7 +92,25 @@ def topstack_check_longitude(lon1, lon2):
     return topLon1, topLon2
 
 
-def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_method, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+def generate_lat_lon_steps(latitude_step, lat1, lat2):
+    """
+    Generates latitude and longitude steps based on the input latitude step.
+
+    Args:
+        lat_step: Latitude step size in degrees.
+        lat1, lat2: Latitude range.
+
+    Returns:
+        A tuple containing the latitude and longitude steps.
+    """
+    #Convert lat_step from meters to degrees
+    lat_step = latitude_step / 111320
+    latitude = (lat1 + lat2)/2
+    lon_step = round(lat_step / math.cos(math.radians(float(latitude))), 5)
+    return lat_step, lon_step
+
+
+def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_method, latitude_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
     """
     Creates an InSAR template configuration.
 
@@ -107,7 +125,7 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
     Returns:
         The generated template configuration.
     """
-    lon_step = round(lat_step / math.cos(math.radians(float(lat1))), 5)
+    lat_step, lon_step = generate_lat_lon_steps(latitude_step, lat1, lat2)
 
     print(f"Latitude range: {lat1}, {lat2}\n")
     print(f"Longitude range: {lon1}, {lon2}\n")
