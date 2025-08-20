@@ -18,6 +18,8 @@ class TestCreateInsarTemplate(unittest.TestCase):
         # Run the script
         result = subprocess.run(input_args, capture_output=True, text=True)
 
+        self.assertTrue(os.path.exists(script_path), f"Script file not found: {script_path}")
+
         # Assert the script ran successfully
         self.assertEqual(result.returncode, 0, f"Script failed with error: {result.stderr}")
 

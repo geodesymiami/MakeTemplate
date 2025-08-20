@@ -8,6 +8,7 @@ executors:
 jobs:
   test:
     executor: python-executor
+    working_directory: ~/project
     steps:
       - checkout
       - run:
