@@ -7,7 +7,7 @@ class TestCreateInsarTemplate(unittest.TestCase):
     def test_template_creation(self):
         # Define paths
         project_root = os.getcwd()  # Get the current working directory
-        script_path = os.path.join(project_root, "src", "maketemplate", "create_insar_template.py")
+        script_path = os.path.join(project_root, "src", "maketemplate", "cli", "create_insar_template.py")
         xlsfile_path = os.path.join(project_root, "docs", "Central_America.xlsx")
         output_dir = os.path.join(project_root, "output")
 
