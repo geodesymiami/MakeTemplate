@@ -13,6 +13,10 @@ class TestCreateInsarTemplate(unittest.TestCase):
 
         os.makedirs(output_dir, exist_ok=True)
 
+        # Add src directory to PYTHONPATH
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.join(project_root, "src")
+
         input_args = ["python", script_path,"--xlsfile", xlsfile_path,"--save","--dir", output_dir]
 
         # Run the script
