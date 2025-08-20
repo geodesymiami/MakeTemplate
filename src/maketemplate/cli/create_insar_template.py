@@ -7,7 +7,7 @@ import argparse
 import datetime
 from datetime import datetime as dt
 from datetime import timedelta as td
-import src.maketemplate.asf_extractor as asf_extractor
+from maketemplate import asf_extractor
 
 
 EXAMPLE = f"""
@@ -19,7 +19,6 @@ create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,
 create_insar_template.py  --polygon 'POLYGON((27.1216 36.557,27.2123 36.557,27.2123 36.62,27.1216 36.62,27.1216 36.557))' --relativeOrbit 131 --start-date 20220101 --end-date 20220228 --filename volcano
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
-
 
 def create_parser():
     synopsis = 'Create Template for insar processing'
@@ -34,7 +33,7 @@ def create_parser():
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.75, help="Threshold value for temporal coherence.")
-    parser.add_argument('--lat-step', type=float, default=0.008, help="Latitude step size (default: %(default)s).")
+    parser.add_argument('--lat-step', dest='lat_step', type=float, default=15, help="Latitude step size in meters (default: %(default)s meters).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--filename', dest='file_name', type=str, default=None, help=f"Name of template file (Default: Unknown).")
     parser.add_argument('--save', action="store_true")
@@ -93,7 +92,25 @@ def topstack_check_longitude(lon1, lon2):
     return topLon1, topLon2
 
 
-def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_method, lat_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
+def generate_lat_lon_steps(latitude_step, lat1, lat2):
+    """
+    Generates latitude and longitude steps based on the input latitude step.
+
+    Args:
+        lat_step: Latitude step size in degrees.
+        lat1, lat2: Latitude range.
+
+    Returns:
+        A tuple containing the latitude and longitude steps.
+    """
+    #Convert lat_step from meters to degrees
+    lat_step = latitude_step / 111320
+    latitude = (lat1 + lat2)/2
+    lon_step = round(lat_step / math.cos(math.radians(float(latitude))), 5)
+    return lat_step, lon_step
+
+
+def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_method, latitude_step, start_date, end_date, satellite, lat1, lat2, lon1, lon2, miaLon1, miaLon2, topLon1, topLon2):
     """
     Creates an InSAR template configuration.
 
@@ -108,7 +125,7 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
     Returns:
         The generated template configuration.
     """
-    lon_step = round(lat_step / math.cos(math.radians(float(lat1))), 5)
+    lat_step, lon_step = generate_lat_lon_steps(latitude_step, lat1, lat2)
 
     print(f"Latitude range: {lat1}, {lat2}\n")
     print(f"Longitude range: {lon1}, {lon2}\n")
@@ -197,25 +214,26 @@ mintpy.reference.minCoherence      = auto      #[0.0-1.0], auto for 0.85, minimu
 mintpy.troposphericDelay.method    = {tropospheric_delay_method}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
 mintpy.networkInversion.minTempCoh = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
 ######################################################
-miaplpy.load.processor            = isce
-miaplpy.multiprocessing.numProcessor= 40
-miaplpy.inversion.rangeWindow     = 24   # range window size for searching SHPs, auto for 15
-miaplpy.inversion.azimuthWindow   = 7    # azimuth window size for searching SHPs, auto for 15
-miaplpy.timeseries.tempCohType    = full     # [full, average], auto for full.
-miaplpy.interferograms.networkType= delaunay # network
+miaplpy.load.processor               = isce
+miaplpy.multiprocessing.numProcessor = 40
+miaplpy.inversion.rangeWindow        = 24   # range window size for searching SHPs, auto for 15
+miaplpy.inversion.azimuthWindow      = 7    # azimuth window size for searching SHPs, auto for 15
+miaplpy.timeseries.tempCohType       = full     # [full, average], auto for full.
+miaplpy.interferograms.networkType   = delaunay # network
+miaplpy.unwrap.snaphu.tileNumPixels  = 10000000000     # number of pixels in a tile, auto for 10000000
 ######################################################
-minsar.miaplpyDir.addition         = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
-mintpy.subset.lalo                 = {lat1}:{lat2},{lon1}:{lon2}
-miaplpy.subset.lalo                = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
-miaplpy.load.startDate             = auto  # 20200101
-miaplpy.load.endDate               = auto 
-mintpy.geocode.laloStep            = {lat_step},{lon_step}
-miaplpy.timeseries.minTempCoh      = {min_temp_coh}      # auto for 0.5
-mintpy.networkInversion.minTempCoh = {min_temp_coh}
+minsar.miaplpyDir.addition           = date  #[name / lalo / no] auto for no (miaply_$name_startDate_endDate))
+mintpy.subset.lalo                   = {lat1}:{lat2},{lon1}:{lon2}
+miaplpy.subset.lalo                  = {lat1}:{lat2},{miaLon1}:{miaLon2}  #[S:N,W:E / no], auto for no
+miaplpy.load.startDate               = auto  # 20200101
+miaplpy.load.endDate                 = auto
+mintpy.geocode.laloStep              = {lat_step},{lon_step}
+miaplpy.timeseries.minTempCoh        = {min_temp_coh}      # auto for 0.5
+mintpy.networkInversion.minTempCoh   = {min_temp_coh}
 ######################################################
-minsar.insarmaps_flag              = True
-minsar.upload_flag                 = True
-minsar.insarmaps_dataset           = filt*DS
+minsar.insarmaps_flag                = True
+minsar.upload_flag                   = True
+minsar.insarmaps_dataset             = filt*DS
 """
     return config
 
@@ -306,7 +324,7 @@ def main(iargs=None):
             relative_orbit = data.get('relative_orbit',''),
             subswath = data.get('topsStack.subswath', ''),
             tropospheric_delay_method = data.get('inps.tropospheric_delay_method', 'auto'),
-            lat_step = inps.lat_step,
+            latitude_step = inps.lat_step,
             start_date = data.get('start_date', ''),
             end_date = data.get('end_date', ''),
             satellite=data.get('satellite'),
@@ -325,7 +343,7 @@ def main(iargs=None):
             sat = "Sen" if "SEN" in data.get('satellite', '').upper()[:4] else ""
             template_name = os.path.join(f"{name}{sat}{data.get('direction')}{data.get('relative_orbit')}.template")
             if inps.out_dir:
-                template_name = os.path.join(inps.out_dir, template_name) 
+                template_name = os.path.join(inps.out_dir, template_name)
             with open(template_name, 'w') as f:
                 f.write(template)
                 print(f"Template saved in {template_name}")
