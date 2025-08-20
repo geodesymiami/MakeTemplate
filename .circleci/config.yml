@@ -1,0 +1,30 @@
+version: 2.1
+
+executors:
+  python-executor:
+    docker:
+      - image: circleci/python:3.9
+
+jobs:
+  test:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+      - run:
+          name: Run Tests
+          command: |
+            . venv/bin/activate
+            python -m unittest discover -s tests -p "test_*.py"
+
+workflows:
+  version: 2
+  test_workflow:
+    jobs:
+      - test
