@@ -18,7 +18,7 @@ class TestCreateInsarTemplate(unittest.TestCase):
         env["PYTHONPATH"] = os.path.join(project_root, "src")
         print(f"PYTHONPATH: {env['PYTHONPATH']}")  # Debug print
 
-        input_args = ["python", script_path, "--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
+        input_args = ["python", "-m", "maketemplate.cli.create_insar_template","--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
 
         # Run the script with the updated environment
         result = subprocess.run(input_args, capture_output=True, text=True, env=env)
