@@ -23,11 +23,6 @@ jobs:
           command: |
             export PYTHONPATH=$PWD/src
             . venv/bin/activate
-            python -m unittest discover -s tests
-      - run:
-          name: Run Tests
-          command: |
-            . venv/bin/activate
             python -m unittest discover -s tests -p "test_*.py"
 
 workflows:
