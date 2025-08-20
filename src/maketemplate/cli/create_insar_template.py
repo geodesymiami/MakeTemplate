@@ -7,7 +7,7 @@ import argparse
 import datetime
 from datetime import datetime as dt
 from datetime import timedelta as td
-import src.maketemplate.asf_extractor as asf_extractor
+from maketemplate import asf_extractor
 
 
 EXAMPLE = f"""
