@@ -33,7 +33,7 @@ def create_parser():
     parser.add_argument('--subswath', type=str, default='1 2 3', help="subswath numbers as a string (default: %(default)s).")
     parser.add_argument('--troposphericDelay-method',dest='tropospheric_delay_method', type=str, default='auto', help="Tropospheric correction mode.")
     parser.add_argument('--minTempCoh', dest='min_temp_coh', type=float, default=0.75, help="Threshold value for temporal coherence.")
-    parser.add_argument('--lat-step', dest='lalo_step', type=float, default=15, help="Latitude step size in meters (default: %(default)s meters).")
+    parser.add_argument('--lat-step', dest='lat_step', type=float, default=15, help="Latitude step size in meters (default: %(default)s meters).")
     parser.add_argument('--satellite', type=str, choices=['Sen'], default='Sen', help="Specify satellite (default: %(default)s).")
     parser.add_argument('--filename', dest='file_name', type=str, default=None, help=f"Name of template file (Default: Unknown).")
     parser.add_argument('--save', action="store_true")
@@ -324,7 +324,7 @@ def main(iargs=None):
             relative_orbit = data.get('relative_orbit',''),
             subswath = data.get('topsStack.subswath', ''),
             tropospheric_delay_method = data.get('inps.tropospheric_delay_method', 'auto'),
-            lat_step = inps.lat_step,
+            latitude_step = inps.lat_step,
             start_date = data.get('start_date', ''),
             end_date = data.get('end_date', ''),
             satellite=data.get('satellite'),
