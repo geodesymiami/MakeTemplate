@@ -5,13 +5,15 @@ import subprocess
 
 class TestCreateInsarTemplate(unittest.TestCase):
     def test_template_creation(self):
-        # Define input arguments
-        xlsfile_path = os.path.join(os.getcwd(), "docs", "Central_America.xlsx")
-        output_dir = os.path.join(os.getcwd(), "output")
+        # Define paths
+        project_root = os.getcwd()  # Get the current working directory
+        script_path = os.path.join(project_root, "src", "maketemplate", "create_insar_template.py")
+        xlsfile_path = os.path.join(project_root, "docs", "Central_America.xlsx")
+        output_dir = os.path.join(project_root, "output")
 
         os.makedirs(output_dir, exist_ok=True)
 
-        input_args = ["python", "MakeTemplate/src/maketemplate/create_insar_template.py","--xlsfile", xlsfile_path,"--save","--dir", output_dir]
+        input_args = ["python", script_path,"--xlsfile", xlsfile_path,"--save","--dir", output_dir]
 
         # Run the script
         result = subprocess.run(input_args, capture_output=True, text=True)
