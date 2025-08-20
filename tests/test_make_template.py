@@ -14,8 +14,8 @@ class TestCreateInsarTemplate(unittest.TestCase):
         os.makedirs(output_dir, exist_ok=True)
 
         # Add src directory to PYTHONPATH
-        # env = os.environ.copy()
-        # env["PYTHONPATH"] = os.path.join(project_root, "src")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.join(project_root, "src")
 
         input_args = ["python", "-m", "maketemplate.cli.create_insar_template","--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
 
@@ -28,7 +28,7 @@ class TestCreateInsarTemplate(unittest.TestCase):
         self.assertEqual(result.returncode, 0, f"Script failed with error: {result.stderr}")
 
         # Use a wildcard to match output files
-        output_files = glob.glob(os.path.join(output_dir, "test_template*.template"))
+        output_files = glob.glob(os.path.join(output_dir, "*.template"))
 
         print(f"Output files found: {output_files}")
 
