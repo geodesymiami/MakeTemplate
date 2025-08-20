@@ -11,7 +11,7 @@ class TestCreateInsarTemplate(unittest.TestCase):
 
         os.makedirs(output_dir, exist_ok=True)
 
-        input_args = ["python", "src/maketemplate/create_insar_template.py","--xlsfile", xlsfile_path,"--save","--dir", output_dir]
+        input_args = ["python", "MakeTemplate/src/maketemplate/create_insar_template.py","--xlsfile", xlsfile_path,"--save","--dir", output_dir]
 
         # Run the script
         result = subprocess.run(input_args, capture_output=True, text=True)
