@@ -17,10 +17,10 @@ class TestCreateInsarTemplate(unittest.TestCase):
         env = os.environ.copy()
         env["PYTHONPATH"] = os.path.join(project_root, "src")
 
-        input_args = ["python", script_path,"--xlsfile", xlsfile_path,"--save","--dir", output_dir]
+        input_args = ["python", script_path, "--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
 
-        # Run the script
-        result = subprocess.run(input_args, capture_output=True, text=True)
+        # Run the script with the updated environment
+        result = subprocess.run(input_args, capture_output=True, text=True, env=env)
 
         self.assertTrue(os.path.exists(script_path), f"Script file not found: {script_path}")
 
