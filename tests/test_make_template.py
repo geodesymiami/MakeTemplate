@@ -31,6 +31,8 @@ class TestCreateInsarTemplate(unittest.TestCase):
         # Use a wildcard to match output files
         output_files = glob.glob(os.path.join(output_dir, "test_template*.template"))
 
+        print(f"Output files found: {output_files}")
+
         # Assert that at least one matching file exists
         self.assertTrue(len(output_files) > 0, "No matching output files were created.")
 
