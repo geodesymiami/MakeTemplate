@@ -14,9 +14,8 @@ class TestCreateInsarTemplate(unittest.TestCase):
         os.makedirs(output_dir, exist_ok=True)
 
         # Add src directory to PYTHONPATH
-        env = os.environ.copy()
-        env["PYTHONPATH"] = os.path.join(project_root, "src")
-        print(f"PYTHONPATH: {env['PYTHONPATH']}")  # Debug print
+        # env = os.environ.copy()
+        # env["PYTHONPATH"] = os.path.join(project_root, "src")
 
         input_args = ["python", "-m", "maketemplate.cli.create_insar_template","--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
 
