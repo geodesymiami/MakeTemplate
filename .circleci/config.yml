@@ -11,6 +11,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Debug File Structure
+          command: |
+            echo "Current working directory:"
+            pwd
+            echo "Project file structure:"
+            ls -R
+      - run:
           name: Install Dependencies
           command: |
             python -m venv venv
