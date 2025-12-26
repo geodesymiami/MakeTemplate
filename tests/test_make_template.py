@@ -1,43 +1,74 @@
 import os
 import glob
-import unittest
 import subprocess
+import pytest
 
-class TestCreateInsarTemplate(unittest.TestCase):
-    def test_template_creation(self):
-        # Define paths
-        project_root = os.getcwd()  # Get the current working directory
-        script_path = os.path.join(project_root, "src", "maketemplate", "cli", "create_insar_template.py")
-        xlsfile_path = os.path.join(project_root, "docs", "Central_America.xlsx")
-        output_dir = os.path.join(project_root, "output")
 
-        os.makedirs(output_dir, exist_ok=True)
+@pytest.fixture
+def project_root():
+    # Adjust if your tests are not run from repo root
+    return os.getcwd()
 
-        # Add src directory to PYTHONPATH
-        env = os.environ.copy()
-        env["PYTHONPATH"] = os.path.join(project_root, "src")
 
-        input_args = ["python", "-m", "maketemplate.cli.create_insar_template","--xlsfile", xlsfile_path, "--save", "--dir", output_dir]
+@pytest.fixture
+def env_with_src(project_root):
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.path.join(project_root, "src")
+    return env
 
-        # Run the script with the updated environment
-        result = subprocess.run(input_args, capture_output=True, text=True, env=env)
 
-        self.assertTrue(os.path.exists(script_path), f"Script file not found: {script_path}")
+def test_create_insar_template(project_root, env_with_src, tmp_path):
+    # Paths
+    script_path = os.path.join(
+        project_root,
+        "src",
+        "maketemplate",
+        "cli",
+        "create_insar_template.py",
+    )
 
-        # Assert the script ran successfully
-        self.assertEqual(result.returncode, 0, f"Script failed with error: {result.stderr}")
+    xlsfile_path = os.path.join(
+        project_root,
+        "docs",
+        "Central_America.xlsx",
+    )
 
-        # Use a wildcard to match output files
-        output_files = glob.glob(os.path.join(output_dir, "*.template"))
+    output_dir = tmp_path  # pytest-managed temporary directory
 
-        print(f"Output files found: {output_files}")
+    # Sanity check: script exists
+    assert os.path.exists(script_path), f"Script file not found: {script_path}"
+    assert os.path.exists(xlsfile_path), f"Excel file not found: {xlsfile_path}"
 
-        # Assert that at least one matching file exists
-        self.assertTrue(len(output_files) > 0, "No matching output files were created.")
+    # Command
+    cmd = [
+        "python",
+        "-m",
+        "maketemplate.cli.create_insar_template",
+        "--xlsfile",
+        xlsfile_path,
+        "--save",
+        "--dir",
+        str(output_dir),
+    ]
 
-        # Clean up: Remove all matching files
-        for file in output_files:
-            os.remove(file)
+    # Run command
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env_with_src,
+    )
 
-if __name__ == "__main__":
-    unittest.main()
+    # Assert successful execution
+    assert result.returncode == 0, (
+        "Script failed\n"
+        f"STDOUT:\n{result.stdout}\n"
+        f"STDERR:\n{result.stderr}"
+    )
+
+    # Check output files
+    output_files = glob.glob(str(output_dir / "*.template"))
+
+    print(f"Output files found: {output_files}")
+
+    assert len(output_files) > 0, "No matching output files were created."

@@ -15,8 +15,8 @@ DEFAULT FULLPATH FOR xlsfile IS ${os.getenv('SCRATCHDIR')}
 
 create_insar_template.py --xlsfile Central_America.xlsx --save
 create_insar_template.py --subswath '1 2' --url https://search.asf.alaska.edu/#/?zoom=9.065&center=130.657,31.033&polygon=POLYGON((130.5892%2031.2764,131.0501%2031.2764,131.0501%2031.5882,130.5892%2031.5882,130.5892%2031.2764))&productTypes=SLC&flightDirs=Ascending&resultsLoaded=true&granule=S1B_IW_SLC__1SDV_20190627T092113_20190627T092140_016880_01FC2F_0C69-SLC
-create_insar_template.py  --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --relativeOrbit 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
-create_insar_template.py  --polygon 'POLYGON((27.1216 36.557,27.2123 36.557,27.2123 36.62,27.1216 36.62,27.1216 36.557))' --relativeOrbit 131 --start-date 20220101 --end-date 20220228 --filename volcano
+create_insar_template.py --polygon 'POLYGON((130.5892 31.2764,131.0501 31.2764,131.0501 31.5882,130.5892 31.5882,130.5892 31.2764))' --relativeOrbit 54 --subswath '1 2' --satellite 'Sen' --start-date '20160601' --end-date '20230926'
+create_insar_template.py --polygon 'POLYGON((27.1216 36.557,27.2123 36.557,27.2123 36.62,27.1216 36.62,27.1216 36.557))' --relativeOrbit 131 --start-date 20220101 --end-date 20220228 --filename volcano
 """
 SCRATCHDIR = os.getenv('SCRATCHDIR')
 
@@ -26,6 +26,7 @@ def create_parser():
     parser = argparse.ArgumentParser(description=synopsis, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('--xlsfile', type=str, help="Path to the xlsfile file with volcano data.")
+    parser.add_argument('--template', type=str, help="Path to the template file (default: template.txt in docs folder).")
     parser.add_argument('--url', type=str, help="URL to the ASF data.")
     parser.add_argument('--polygon', type=str, help="Polygon coordinates in WKT format.")
     parser.add_argument('--relativeOrbit', dest='relative_orbit', type=int, help="relative orbit number.")
@@ -60,6 +61,24 @@ def create_parser():
             inps.start_date = "20160601"
         if not inps.end_date:
             inps.end_date = datetime.datetime.now().strftime("%Y%m%d")
+
+    if not inps.template:
+        from pathlib import Path
+        try:
+            repo_root = Path(__file__).resolve().parents[3]
+            candidate = repo_root / "docs" / "template.txt"
+            if candidate.exists():
+                inps.template = str(candidate)
+            else:
+                root = (sys.argv[0].split('MakeTemplate')[0]) if isinstance(sys.argv[0], str) else ''
+                inps.template = os.path.join(root, 'MakeTemplate', "docs", "template.txt")
+        except Exception:
+            inps.template = os.path.join(os.getcwd(), "docs", "template.txt")
+    else:
+        if not os.path.exists(inps.template):
+            pwd = os.path.join(os.getcwd(), inps.template)
+            scr = os.path.join(SCRATCHDIR, inps.template) if SCRATCHDIR else None
+            inps.template = pwd if os.path.exists(pwd) else scr
 
     return inps
 
@@ -149,7 +168,8 @@ def create_insar_template(inps, relative_orbit, subswath, tropospheric_delay_met
         lon_step=lon_step,
         start_date=inps.start_date[0],
         end_date= inps.end_date[0],
-        min_temp_coh=inps.min_temp_coh
+        min_temp_coh=inps.min_temp_coh,
+        template_file=inps.template
     )
 
     return template
@@ -184,7 +204,43 @@ def get_satellite_name(satellite):
         raise ValueError("Invalid satellite name. Choose from ['Sen', 'Radarsat', 'TerraSAR']")
 
 
-def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropospheric_delay_method, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh):
+def generate_config(relative_orbit, satellite, lat1, lat2, lon1, lon2, topLon1, topLon2, subswath, tropospheric_delay_method, miaLon1, miaLon2, lat_step, lon_step, start_date, end_date, min_temp_coh, template_file):
+    """
+    Generate configuration either by rendering a template file with ***markers*** or by
+    falling back to the built-in f-string config.
+    """
+    if template_file and os.path.exists(template_file):
+        _RE_MARKER = re.compile(r'\*\*\*(\w+)\*\*\*')
+        with open(template_file, 'r', encoding='utf8') as f:
+            text = f.read()
+
+        # mapping of marker -> value (all converted to strings when substituted)
+        mapping = {
+            'satellite': satellite,
+            'relative_orbit': relative_orbit,
+            'start_date': start_date,
+            'end_date': end_date,
+            'subswath': subswath,
+            'tropospheric_delay_method': tropospheric_delay_method,
+            'lat1': lat1,
+            'lat2': lat2,
+            'lon1': lon1,
+            'lon2': lon2,
+            'miaLon1': miaLon1,
+            'miaLon2': miaLon2,
+            'lat_step': lat_step,
+            'lon_step': lon_step,
+            'min_temp_coh': min_temp_coh,
+        }
+
+        def _repl(m):
+            key = m.group(1)
+            if key in mapping and mapping[key] is not None:
+                return str(mapping[key])
+            # leave unknown markers unchanged
+            return m.group(0)
+
+        return _RE_MARKER.sub(_repl, text)
     config = f"""\
 ######################################################
 ssaraopt.platform                  = {satellite}  # [Sentinel-1 / ALOS2 / RADARSAT2 / TerraSAR-X / COSMO-Skymed]
@@ -212,7 +268,6 @@ mintpy.save.hdfEos5.subset         = yes   #[yes / no], auto for no, put subset 
 mintpy.save.kmz                    = yes   #[yes / no], auto for yes, save geocoded velocity to Google Earth KMZ file
 mintpy.reference.minCoherence      = auto      #[0.0-1.0], auto for 0.85, minimum coherence for auto method
 mintpy.troposphericDelay.method    = {tropospheric_delay_method}   # pyaps  #[pyaps / height_correlation / base_trop_cor / no], auto for pyaps
-mintpy.networkInversion.minTempCoh = 0.6 #[0.0-1.0], auto for 0.7, min temporal coherence for mask
 ######################################################
 miaplpy.load.processor               = isce
 miaplpy.multiprocessing.numProcessor = 40
@@ -230,6 +285,7 @@ miaplpy.load.endDate                 = auto
 mintpy.geocode.laloStep              = {lat_step},{lon_step}
 miaplpy.timeseries.minTempCoh        = {min_temp_coh}      # auto for 0.5
 mintpy.networkInversion.minTempCoh   = {min_temp_coh}
+mintpy.network.coherenceBased  = yes
 ######################################################
 minsar.insarmaps_flag                = True
 minsar.upload_flag                   = True
@@ -242,68 +298,10 @@ def main(iargs=None):
     inps = create_parser() if not isinstance(iargs, argparse.Namespace) else iargs
     data_collection = []
 
-    if inps.xlsfile:
-        from src.maketemplate.read_excel import main
-        df = main(inps.xlsfile)
-
-        for index, row in df.iterrows():
-            lat1, lat2, lon1, lon2 = parse_polygon(row.polygon)
-
-            # Perform checks
-            miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
-            topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
-            yesterday = dt.now() - td(days=1)
-
-            satellite = get_satellite_name(row.get('satellite'))
-
-            # Create processed values dictionary
-            processed_values = {
-                'latitude1': lat1,
-                'latitude2': lat2,
-                'longitude1': lon1,
-                'longitude2': lon2,
-                'miaplpy.longitude1': miaLon1,
-                'miaplpy.longitude2': miaLon2,
-                'topsStack.longitude1': topLon1,
-                'topsStack.longitude2': topLon2,
-                'relative_orbit': row.get('ssaraopt.relativeOrbit', ''),
-                'start_date': row.get('ssaraopt.startDate', ''),
-                'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
-                'tropospheric_delay_method': row.get('mintpy.troposphericDelay', 'auto'),
-                'subswath': row.get('topsStack.subswath', ''),
-                'satellite': satellite
-
-            }
-
-            # Update row dictionary and append to collection
-            row_dict = row.to_dict()
-            row_dict.update(processed_values)
-            data_collection.append(row_dict)
-    else:
-        # Handle URL or polygon input
-        if inps.url:
-            relative_orbit, satellite, direction, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
-        else:
-            lat1, lat2, lon1, lon2 = parse_polygon(inps.polygon)
-            satellite = get_satellite_name(inps.satellite)
-            direction = inps.direction
-            relative_orbit = inps.relative_orbit
-
-        # Perform checks
+    def _loc_dict(lat1, lat2, lon1, lon2, satellite):
         miaLon1, miaLon2 = miaplpy_check_longitude(lon1, lon2)
         topLon1, topLon2 = topstack_check_longitude(lon1, lon2)
-
-        # Create processed values dictionary
-        processed_values = {
-            'name': inps.name if hasattr(inps, 'name') else 'Unknown',
-            'direction': direction,
-            'ssaraopt.startDate': inps.start_date if hasattr(inps, 'start_date') else 'auto',
-            'ssaraopt.endDate': inps.end_date if hasattr(inps, 'end_date') else 'auto',
-            'ssaraopt.relativeOrbit': inps.relative_orbit if hasattr(inps, 'relative_orbit') else None,
-            'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
-            'mintpy.troposphericDelay.method': inps.tropospheric_delay_method,
-            'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
-            'satellite': satellite,
+        return {
             'latitude1': lat1,
             'latitude2': lat2,
             'longitude1': lon1,
@@ -312,10 +310,61 @@ def main(iargs=None):
             'miaplpy.longitude2': miaLon2,
             'topsStack.longitude1': topLon1,
             'topsStack.longitude2': topLon2,
+            'satellite': satellite
+        }
+
+    if inps.xlsfile:
+        from src.maketemplate.read_excel import main
+        df = main(inps.xlsfile)
+
+        for index, row in df.iterrows():
+            lat1, lat2, lon1, lon2 = parse_polygon(row.polygon)
+            yesterday = dt.now() - td(days=1)
+
+            for _, row in df.iterrows():
+                lat1, lat2, lon1, lon2 = parse_polygon(row.polygon)
+                satellite = get_satellite_name(row.get('satellite'))
+                loc = _loc_dict(lat1, lat2, lon1, lon2, satellite)
+
+                processed_values = {
+                    **loc,
+                    'relative_orbit': row.get('ssaraopt.relativeOrbit', ''),
+                    'start_date': row.get('ssaraopt.startDate', ''),
+                    'end_date': yesterday.strftime('%Y%m%d') if 'auto' in row.get('ssaraopt.endDate', '') else row.get('ssaraopt.endDate', ''),
+                    'tropospheric_delay_method': row.get('mintpy.troposphericDelay', 'auto'),
+                    'subswath': row.get('topsStack.subswath', ''),
+                }
+
+                row_dict = row.to_dict()
+                row_dict.update(processed_values)
+                data_collection.append(row_dict)
+    else:
+        # URL or polygon input
+        if inps.url:
+            relative_orbit, satellite, direction, lat1, lat2, lon1, lon2 = asf_extractor.main(inps.url)
+        else:
+            lat1, lat2, lon1, lon2 = parse_polygon(inps.polygon)
+            satellite = get_satellite_name(inps.satellite)
+            if not inps.relative_orbit:
+                pass
+            direction = inps.direction
+            relative_orbit = inps.relative_orbit
+
+        loc = _loc_dict(lat1, lat2, lon1, lon2, satellite)
+
+        processed_values = {
+            **loc,
+            'name': inps.name if hasattr(inps, 'name') else 'Unknown',
+            'direction': direction,
+            'ssaraopt.startDate': inps.start_date if hasattr(inps, 'start_date') else 'auto',
+            'ssaraopt.endDate': inps.end_date if hasattr(inps, 'end_date') else 'auto',
+            'ssaraopt.relativeOrbit': inps.relative_orbit if hasattr(inps, 'relative_orbit') else None,
+            'topsStack.subswath': inps.subswath if hasattr(inps, 'subswath') else None,
+            'mintpy.troposphericDelay.method': inps.tropospheric_delay_method,
+            'polygon': inps.polygon if hasattr(inps, 'polygon') else None,
             'relative_orbit': relative_orbit
         }
 
-        # Append processed values to collection
         data_collection.append(processed_values)
 
     for data in data_collection:
